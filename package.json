@@ -1,0 +1,12 @@
+{
+  "name": "ework-permit-demo",
+  "private": true,
+  "description": "e-Work Permit (FM-MR-58) DEMO — GitHub Pages + Google Apps Script",
+  "scripts": {
+    "test": "node test/run.js",
+    "sync-data": "node tools/sync-data.js",
+    "assets": "node tools/gen-demo-assets.js",
+    "build": "node tools/sync-data.js && node tools/build-all-in-one.js",
+    "dev": "node test/dev-server.js 8765"
+  }
+}
