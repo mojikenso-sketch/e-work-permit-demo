@@ -44,7 +44,7 @@
   <p class="hint">สแกน QR หรือบันทึกลิงก์นี้เพื่อติดตามสถานะ</p>
   <div class="flex" style="justify-content:center">
     <button class="btn ghost" id="copy"><i class="fa-solid fa-copy"></i> คัดลอกลิงก์</button>
-    <a class="btn ghost" href="${printUrl}" target="_blank"><i class="fa-solid fa-print"></i> พิมพ์ใบคำขอ</a>
+    <a class="btn ghost" href="${printUrl}" target="_blank"${WP.lock('พิมพ์ / บันทึก PDF')}>🔒 <i class="fa-solid fa-print"></i> พิมพ์ใบคำขอ</a>
     <a class="btn" href="${WP.base}/request.html"><i class="fa-solid fa-plus"></i> ขอใบอนุญาตใหม่</a>
   </div>
 </div>`;
@@ -55,7 +55,7 @@
     <h2>${E(p.permit_no)} ${WP.statusBadge(es)} ${WP.workDoneBadge(p)}</h2>
     <div class="meta"><span><i class="fa-solid fa-location-dot"></i> ${E(p.location)}</span><span><i class="fa-regular fa-calendar"></i> ${WP.thaiDate(p.work_date)} ${WP.hm(p.time_from)}–${WP.hm(p.time_to)}</span></div>
   </div>
-  <div class="actions"><a class="btn ${['approved', 'closed'].includes(p.status) ? 'gold' : 'ghost'}" href="${printUrl}" target="_blank"><i class="fa-solid fa-print"></i> พิมพ์ใบอนุญาต</a></div>
+  <div class="actions"><a class="btn ${['approved', 'closed'].includes(p.status) ? 'gold' : 'ghost'}" href="${printUrl}" target="_blank"${WP.lock('พิมพ์ / บันทึก PDF')}>🔒 <i class="fa-solid fa-print"></i> พิมพ์ใบอนุญาต</a></div>
 </div>`;
 
   h += `<div class="card mb2 reveal"><div class="card-b">${WP.trackStepsHTML(p)}`;
@@ -75,7 +75,7 @@
   // "แจ้งเสร็จงาน": approved (also past its work window), not closed, not reported yet
   if (WP.canReportWorkDone(p)) {
     h += `<div class="alert info mt2 wd-report"><i class="fa-solid fa-camera ic-bob"></i><p>ปฏิบัติงานเสร็จแล้ว? แจ้งเสร็จงานพร้อมแนบรูปถ่ายพื้นที่หลังเสร็จงาน เพื่อให้ผู้รับผิดชอบงาน / เจ้าของพื้นที่ / จป. ตรวจสอบและปิดงาน</p>
-    <button type="button" class="btn" id="btn-work-done"><i class="fa-solid fa-flag-checkered"></i> แจ้งเสร็จงาน</button></div>`;
+    <button type="button" class="btn" id="btn-work-done"${WP.lock('แจ้งเสร็จงานพร้อมรูปถ่าย')}>🔒 <i class="fa-solid fa-flag-checkered"></i> แจ้งเสร็จงาน</button></div>`;
   }
   h += `</div></div>`;
   h += WP.workDoneHTML(p);

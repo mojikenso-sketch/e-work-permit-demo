@@ -41,9 +41,9 @@
         <td>${+x.worker_count || 0}</td>
         <td class="nowrap"><small>${WP.thaiDate(x.created_at, true)}</small></td>
         <td class="nowrap"><a class="btn sm ${x.status === 'pending' ? 'gold' : 'ghost'}" href="view.html?id=${x.id}"><i class="fa-solid ${x.status === 'pending' ? 'fa-gavel' : 'fa-eye'}"></i> ${x.status === 'pending' ? 'พิจารณา' : 'ดู'}</a>
-          <a class="btn-icon" href="../print.html?id=${x.id}" target="_blank" title="พิมพ์"><i class="fa-solid fa-print"></i></a>
-          <a class="btn sm ghost" href="../request.html?edit=${x.id}" title="แก้ไขข้อมูล">✏️ แก้ไข</a>
-          <button type="button" class="btn sm danger" data-del="${x.id}" data-no="${E(x.permit_no)}" data-es="${E(x.es)}" title="ลบใบอนุญาต">🗑 ลบ</button></td>
+          <a class="btn sm ghost" href="../print.html?id=${x.id}" target="_blank" title="พิมพ์ (เวอร์ชันเต็ม)"${WP.lock('พิมพ์ / บันทึก PDF')}>🔒 <i class="fa-solid fa-print"></i></a>
+          <a class="btn sm ghost" href="../request.html?edit=${x.id}" title="แก้ไขข้อมูล (เวอร์ชันเต็ม)"${WP.lock('แก้ไขใบอนุญาต')}>🔒 แก้ไข</a>
+          <button type="button" class="btn sm danger" data-del="${x.id}" data-no="${E(x.permit_no)}" data-es="${E(x.es)}" title="ลบใบอนุญาต (เวอร์ชันเต็ม)"${WP.lock('ลบใบอนุญาต')}>🔒 ลบ</button></td>
       </tr>`).join('')}
   </tbody></table></div>`;
   if (bound) return;

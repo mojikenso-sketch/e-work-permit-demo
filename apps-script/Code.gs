@@ -14,8 +14,9 @@
  *                 approval-reminder trigger (every 5 min), testTeamsNotification()
  *   Data.gs     — reference data (companies, checklists, rules) — single source of truth
  *   DemoSeed.gs / DemoAssets.gs / Demo.gs — DEMO copy: sample data, signatures, setupDemo(),
- *                 seedDemoData_(), demoAutoReset() (every 3 days), demo_info; WP_DEMO neuters
- *                 Teams / reset_data / deleting sample permits / changing the demo accounts
+ *                 seedDemoData_(), demoAutoReset() (hourly trigger, re-seeds every 5 hours), demo_info;
+ *                 WP_DEMO neuters Teams and locks the premium actions (DEMO_LOCKED_ACTIONS: edit /
+ *                 delete permit, user management, reset_data, work_done, file uploads on submit)
  *
  * Transport (same as our SDS project):
  *   GET  ?action=config|stats|ping|demo_info  → public, no secrets
@@ -150,6 +151,7 @@ function handle_(action, params, method) {
     var routes = routes_();
     if (!Object.prototype.hasOwnProperty.call(routes, action)) fail_('Unknown action', 'NOT_FOUND');
     if (method === 'GET' && !WP_GET_ACTIONS[action]) fail_('คำสั่งนี้ต้องเรียกด้วย POST', 'BAD_REQUEST');
+    demoCheckLocked_(action, params); // DEMO (Demo.gs): premium actions → "ฟีเจอร์นี้มีในเวอร์ชันเต็ม"
     var ctx = { tables: {}, user: null };
     return jsonOut_({ ok: true, data: routes[action](params, ctx) });
   } catch (err) {
@@ -190,6 +192,7 @@ function apiBatch_(p, ctx) {
     var action = String(params.action || '');
     try {
       if (!Object.prototype.hasOwnProperty.call(WP_BATCH_ACTIONS, action)) fail_('Unknown action', 'NOT_FOUND');
+      demoCheckLocked_(action, params); // DEMO: never a premium action through a batch either
       return { ok: true, data: routes[action](params, ctx) };
     } catch (err) {
       if (err instanceof WpError) return { ok: false, error: err.message, code: err.code };

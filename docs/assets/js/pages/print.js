@@ -20,6 +20,8 @@
       if (k < 1) { f.style.zoom = String(Math.floor(k * 0.97 * 1000) / 1000); return; }
     });
   };
+  // DEMO: printing / PDF is a full-version feature (demo.js)
+  if (WP.lockedPage) return WP.lockedPage(root, 'พิมพ์ใบอนุญาต (A4) / บันทึก PDF');
   const id = WP.qs('id'), no = WP.qs('no'), t = WP.qs('t');
   const notFound = msg => { root.innerHTML = `<div class="page" style="min-height:auto;text-align:center;font-size:16px">${E(msg || 'ไม่พบใบอนุญาต')}</div>`; };
   if (!WP.apiUrl) return notFound('ยังไม่ได้ตั้งค่า apiUrl ใน docs/config.js');

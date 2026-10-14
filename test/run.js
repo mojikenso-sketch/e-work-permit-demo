@@ -5,7 +5,8 @@
  *  3. syntax check of every frontend JS file and every inline <script> in docs/
  *  4. appsscript.json manifest sanity
  *  5. browser transport (core.js: batching, fallback, read cache, hand-over) against the backend
- *  6. DEMO: seed data, setupDemo / demoAutoReset / resetDemoNow, demo_info, neutered actions,
+ *  6. DEMO: seed data, setupDemo / demoAutoReset (hourly, every 5 h) / resetDemoNow, demo_info,
+ *     🔒 locked premium actions, trial-gate.js + DEMO_TRIAL on every page,
  *     ALL-IN-ONE.gs up to date, no real company / people names anywhere in the demo folder
  */
 'use strict';
@@ -51,7 +52,7 @@ const tdm = Date.now();
 const dm = require('./demo.test.js')();
 passed += dm.passed;
 failures.push(...dm.failures);
-console.log(`DEMO (seed, auto reset, demo_info, neutered actions, branding): ${dm.passed} passed, ${dm.failures.length} failed (${Date.now() - tdm} ms)`);
+console.log(`DEMO (seed, 5-hour auto reset, demo_info, locked actions, trial gate, branding): ${dm.passed} passed, ${dm.failures.length} failed (${Date.now() - tdm} ms)`);
 
 // 2 ---------------------------------------------------------------------------
 const gsData = fs.readFileSync(path.join(ROOT, 'apps-script', 'Data.gs'), 'utf8');

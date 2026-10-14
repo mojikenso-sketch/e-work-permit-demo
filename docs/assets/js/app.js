@@ -188,7 +188,7 @@
     const ro = readonly ? 'disabled' : '';
     const att = it => opts.attach && it.attach && !readonly;
     const accept = (WP.data.config.itemFileExt || []).map(x => '.' + x).join(',');
-    const attBtn = it => att(it) ? `<label class="btn sm ghost cl-att-btn" title="แนบไฟล์ PDF / รูปภาพ (ถ้ามี)"><input type="file" multiple hidden data-att="${it.id}" accept="${accept}"><i class="fa-solid fa-paperclip"></i> แนบไฟล์</label>` : '';
+    const attBtn = it => att(it) ? `<label class="btn sm ghost cl-att-btn" title="แนบไฟล์ PDF / รูปภาพ (เวอร์ชันเต็ม)"${WP.lock ? WP.lock('แนบไฟล์ / อัปโหลดเอกสาร') : ''}><input type="file" multiple hidden data-att="${it.id}" accept="${accept}">${WP.lock ? '🔒 ' : ''}<i class="fa-solid fa-paperclip"></i> แนบไฟล์</label>` : '';
     const attList = it => att(it) ? `<ul class="cl-att-list" data-att-list="${it.id}"></ul>` : '';
     values = WP.upgradeChecklist(values);
     box._legacy = values._legacy || null;

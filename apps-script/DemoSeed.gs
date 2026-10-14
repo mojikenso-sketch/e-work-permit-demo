@@ -1,6 +1,6 @@
 /**
  * DEMO seed data (plain data) — the default content written by seedDemoData_() (Demo.gs)
- * on setupDemo(), resetDemoNow() and every 3 days by demoAutoReset().
+ * on setupDemo(), resetDemoNow() and every 5 hours by demoAutoReset() (hourly trigger).
  *
  * Everything here is FICTIONAL: the company "บริษัท ตัวอย่าง อินดัสทรี จำกัด (Demo Co., Ltd.)",
  * its staff, contractors, phone numbers (080-000-xxxx) and e-mails (*.example).

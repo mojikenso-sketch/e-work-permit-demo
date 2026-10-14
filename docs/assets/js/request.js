@@ -8,6 +8,8 @@
   const CFG = WP.data.config;
   const form = $('#wp-form');
   const editId = WP.editMode ? +WP.qs('edit') || 0 : 0;
+  // DEMO: editing a permit is a full-version feature (demo.js; the server refuses update_permit too)
+  if (editId && WP.lockedPage) { WP.lockedPage(WP.main, 'แก้ไขข้อมูลใบอนุญาต'); return; }
   let step = 0, pads = {}, lastTypes = '';
   let initial = null; // edit mode: { checklist, loto, confined } of the permit being edited
   let editNo = '', editBase = ''; // edit mode: permit no + its updated_at as loaded (a newer change by someone else is refused)

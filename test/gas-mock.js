@@ -248,18 +248,19 @@ function createGas() {
     AuthMode: { FULL: 'FULL', LIMITED: 'LIMITED', NONE: 'NONE' },
     requireScopes(mode, scopes) { scopeRequests.push({ mode, scopes: (scopes || []).slice() }); },
     newTrigger(fn) {
-      let minutes = null, days = null, hour = null;
+      let minutes = null, days = null, hour = null, hours = null;
       const b = {
         timeBased() { return b; },
         everyMinutes(n) {
           if ([1, 5, 10, 15, 30].indexOf(n) < 0) throw new Error('everyMinutes: 1, 5, 10, 15 or 30 only');
           minutes = n; return b;
         },
+        everyHours(n) { if ([1, 2, 4, 6, 8, 12].indexOf(n) < 0) throw new Error('everyHours: 1, 2, 4, 6, 8 or 12 only'); hours = n; return b; },
         everyDays(n) { if (!(n >= 1)) throw new Error('everyDays: n >= 1'); days = n; return b; },
         atHour(h) { if (!days) throw new Error('atHour needs everyDays'); if (!(h >= 0 && h <= 23)) throw new Error('atHour: 0-23'); hour = h; return b; },
         create() {
-          if (!minutes && !days) throw new Error('trigger without a schedule');
-          const t = new Trigger(fn, minutes); t.days = days; t.hour = hour; triggers.push(t); return t;
+          if (!minutes && !days && !hours) throw new Error('trigger without a schedule');
+          const t = new Trigger(fn, minutes); t.days = days; t.hour = hour; t.hours = hours; triggers.push(t); return t;
         }
       };
       return b;

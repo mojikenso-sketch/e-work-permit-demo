@@ -19,7 +19,7 @@
     ['expired', 'หมดอายุ', 'fa-clock-rotate-left', 'ic-wiggle', '#94a3b8']
   ];
   root.innerHTML = `
-<div class="reset-topbar"><button type="button" id="reset-data" class="btn danger">🗑 รีเซ็ตข้อมูล / Reset data</button></div>
+<div class="reset-topbar"><button type="button" id="reset-data" class="btn danger"${WP.lock('รีเซ็ตข้อมูลทั้งหมด')}>🔒 รีเซ็ตข้อมูล / Reset data</button></div>
 <div class="card hero-strip glow-border always reveal">
   <div class="hs-ic"><i class="fa-solid fa-user-shield ic-beat"></i></div>
   <div><h2>สวัสดี, ${E(d.user.fullname)}</h2><div class="meta"><span><i class="fa-solid fa-shield-heart"></i> Safety First — วันนี้มีใบขออนุญาตรออนุมัติ <b style="color:var(--gold)">${cnt.pending}</b> รายการ</span></div></div>

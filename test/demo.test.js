@@ -1,6 +1,8 @@
-/* DEMO copy: plain seed data (DemoSeed.gs), seedDemoData_ / setupDemo / demoAutoReset /
- * resetDemoNow, the demo_info API, what the demo neuters (WP_DEMO), the main API actions on the
- * seeded data, ALL-IN-ONE.gs, the frontend demo pieces and the neutral branding of the folder.
+/* DEMO copy: plain seed data (DemoSeed.gs), seedDemoData_ / setupDemo / demoAutoReset (hourly
+ * trigger, re-seed every 5 hours) / resetDemoNow, the demo_info API, the 🔒 premium actions refused
+ * by the server (DEMO_LOCKED_ACTIONS), the main API actions on the seeded data, ALL-IN-ONE.gs,
+ * the frontend demo pieces (banner, 🔒 buttons, trial-gate.js + DEMO_TRIAL on every page) and
+ * the neutral branding of the folder.
  * Run: node test/run.js */
 'use strict';
 const fs = require('fs');
@@ -71,17 +73,19 @@ module.exports = function run() {
     gas.propStore.WP_RESET_PASSWORD === 'demo1234' && gas.propStore.DEMO_LAST_RESET === new Date(BKK('2026-10-13T10:00:00')).toISOString().replace(/\.\d+Z$/, gas.propStore.DEMO_LAST_RESET.slice(-5)) &&
     gas.propStore.DEMO_SEED_MAX_ID === '25', gas.propStore);
   const demoTriggers = () => gas.triggers.filter((t) => t.getHandlerFunction() === 'demoAutoReset');
-  check('setupDemo: exactly one daily trigger for demoAutoReset (03:00)', demoTriggers().length === 1 && demoTriggers()[0].days === 1 && demoTriggers()[0].hour === 3, gas.triggers);
+  check('setupDemo: exactly one HOURLY trigger for demoAutoReset', demoTriggers().length === 1 && demoTriggers()[0].hours === 1 &&
+    !demoTriggers()[0].days && demoTriggers()[0].hour === null, gas.triggers);
   G.setupDemo();
-  check('setupDemo again: still one trigger, one spreadsheet, same data size', demoTriggers().length === 1 && gas.spreadsheets.size === 1 &&
+  check('setupDemo again: still one (hourly) trigger, one spreadsheet, same data size', demoTriggers().length === 1 && demoTriggers()[0].hours === 1 && gas.spreadsheets.size === 1 &&
     gas.spreadsheets.get(gas.propStore.WP_SPREADSHEET_ID).getSheetByName('permits').getLastRow() === 26);
   check('setupDemo: old Drive files trashed on re-seed', [...gas.files.values()].filter((f) => !f.trashed).length === 18 &&
     [...gas.files.values()].filter((f) => f.trashed).length === 18);
 
   // ================================================================ demo_info
   const di = get({ action: 'demo_info' });
-  check('demo_info: last / next reset (next = first 03:00 slot ≥ 3 days later)', di.ok && Math.abs(Date.parse(di.data.last_reset) - Date.parse(gas.propStore.DEMO_LAST_RESET)) < 1000 &&
-    di.data.next_reset === new Date(BKK('2026-10-17T03:00:00')).toISOString() && di.data.reset_days === 3, di.data);
+  check('demo_info: last / next reset (next = last + 5 hours)', di.ok && Math.abs(Date.parse(di.data.last_reset) - Date.parse(gas.propStore.DEMO_LAST_RESET)) < 1000 &&
+    di.data.next_reset === new Date(BKK('2026-10-13T15:00:00')).toISOString() && di.data.reset_hours === 5 && di.data.reset_days === undefined, di.data);
+  check('demo_info: lists the locked (premium) actions', ['delete', 'update_permit', 'user_save', 'user_toggle', 'reset_data', 'work_done'].every((a) => di.data.locked.includes(a)), di.data.locked);
   const ex = di.data.track_example;
   check('demo_info: track example = a sample permit in progress', ex && /^WP-\d{8}-\d{3}$/.test(ex.permit_no) && /^080-000-\d{4}$/.test(ex.phone), ex);
   const tr = post({ action: 'track', permit_no: ex.permit_no, phone: ex.phone, with_permit: true });
@@ -171,54 +175,73 @@ module.exports = function run() {
   check('Teams: no request sent, a log line instead', V2.ok && gas.fetches.length === 0 && gas.logs.some((l) => /DEMO: Teams notification skipped/.test(l)));
   check('approval reminders: skipped', G.checkApprovalReminders().skipped === 'demo' && gas.fetches.length === 0);
   check('testTeamsNotification: nothing sent', G.testTeamsNotification().ok === false && gas.fetches.length === 0);
+  // ================================================================ 🔒 premium actions: refused by the server
+  const LOCK = (r) => r && r.ok === false && r.code === 'DEMO_LOCKED' && r.error === 'ฟีเจอร์นี้มีในเวอร์ชันเต็ม';
   const rd = post({ action: 'reset_data', session: SA, resetPassword: 'demo1234' });
-  check('reset_data refused (DEMO), data kept', rd.code === 'DEMO' && /ระบบทดลอง/.test(rd.error) && post({ action: 'permits', session: SA }).data.rows.length === 27, rd);
+  check('reset_data locked, data kept', LOCK(rd) && post({ action: 'permits', session: SA }).data.rows.length === 27, rd);
   const dl = post({ action: 'delete', session: SA, id: 3, resetPassword: 'demo1234' });
-  check('deleting a sample permit refused (DEMO)', dl.code === 'DEMO' && post({ action: 'permit', session: SA, id: 3 }).ok, dl);
-  for (let i = 0; i < 12; i++) post({ action: 'delete', session: SA, id: V2.data.id, resetPassword: 'wrong-' + i });
+  check('delete (sample permit) locked', LOCK(dl) && post({ action: 'permit', session: SA, id: 3 }).ok, dl);
   const dl2 = post({ action: 'delete', session: SA, id: V2.data.id, resetPassword: 'demo1234' });
-  check('wrong reset passwords never lock everybody; a visitor permit can be deleted', dl2.ok && dl2.data.id === V2.data.id, dl2);
+  check('delete (a visitor\'s own permit) locked too', LOCK(dl2) && post({ action: 'permit', session: SA, id: V2.data.id }).ok, dl2);
   const sigFiles = JSON.parse(gas.propStore.DEMO_SEED_FILES);
-  check('sample signature files are never trashed by a delete', sigFiles.every((id) => !gas.files.get(id).trashed));
+  check('sample signature files untouched', sigFiles.every((id) => !gas.files.get(id).trashed));
   const p5 = post({ action: 'permit', session: SA, id: 5 }).data.permit;
   const up = post(Object.assign({}, p5, { action: 'update_permit', session: SA, id: 5, resetPassword: 'demo1234', base: p5.updated_at, job_detail: 'แก้ไขโดยผู้ทดลอง' }));
-  check('edit (✏️) of a sample permit with the demo reset password works', up.ok && up.data.changed.join() === 'job_detail', up);
+  check('update_permit (✏️ edit) locked, permit unchanged', LOCK(up) && post({ action: 'permit', session: SA, id: 5 }).data.permit.job_detail === p5.job_detail, up);
   const pw = post({ action: 'user_save', session: SA, id: 1, fullname: 'วรรณา ศรีปลอดภัย', position: 'x', password: 'hacked-123' });
-  check('demo account: password change refused', pw.code === 'DEMO' && login('admin').ok, pw);
-  const rl = post({ action: 'user_save', session: SA, id: 3, fullname: 'สมชาย ใจมั่น', roles: ['area_owner'] });
-  check('demo account: role change refused', rl.code === 'DEMO', rl);
-  const tg = post({ action: 'user_toggle', session: SA, id: 3 });
-  check('demo account: cannot be disabled', tg.code === 'DEMO' && login('resp1').ok, tg);
-  const nm = post({ action: 'user_save', session: SA, id: 3, fullname: 'สมชาย ใจมั่น', position: 'วิศวกรซ่อมบำรุงอาวุโส', roles: ['responsible'], phone: '080-000-1003' });
-  check('demo account: other fields can still be edited (until the next reset)', nm.ok, nm);
+  check('user_save (edit user / password) locked', LOCK(pw) && login('admin').ok, pw);
   const nu = post({ action: 'user_save', session: SA, username: 'visitor1', fullname: 'ผู้ทดลอง', roles: ['responsible'], password: 'visitor-1' });
-  check('new users can be created; their password can be changed', nu.ok && post({ action: 'user_save', session: SA, id: nu.data.id, fullname: 'ผู้ทดลอง', password: 'visitor-2' }).ok &&
-    post({ action: 'user_toggle', session: SA, id: nu.data.id }).ok, nu);
+  check('user_save (add user) locked', LOCK(nu) && login('visitor1', 'visitor-1').code === 'AUTH_FAILED', nu);
+  const tg = post({ action: 'user_toggle', session: SA, id: 3 });
+  check('user_toggle locked', LOCK(tg) && login('resp1').ok, tg);
+  check('users list (view only) still works', post({ action: 'users', session: SA }).data.users.length === 7);
+  const apr = rows.find((r) => r.es === 'approved' && !r.work_done_at) || rows.find((r) => !r.work_done_at);
+  const apv = post({ action: 'permit', session: SA, id: apr.id }).data.permit;
+  const wd = post({ action: 'work_done', no: apv.permit_no, t: apv.token || 'x', photos: [{ name: 'a.png', base64: PNG_1x1 }], note: 'เสร็จ' });
+  check('work_done (report with photos) locked', LOCK(wd) && !post({ action: 'permit', session: SA, id: apr.id }).data.permit.work_done_at, wd);
+  const wa = post(Object.assign({}, body, { attachment: { name: 'a.png', mimeType: 'image/png', base64: PNG_1x1 } }));
+  check('submit with a file attachment (upload) locked', LOCK({ ok: wa.ok, code: wa.code, error: String(wa.error || '').replace(/ \(แนบไฟล์\)$/, '') }), wa);
+  const wi = post(Object.assign({}, body, { item_files: [{ item: 'x', name: 'a.png', base64: PNG_1x1 }] }));
+  check('submit with checklist item files (upload) locked', wi.ok === false && wi.code === 'DEMO_LOCKED', wi);
+  check('nothing created by the locked submits', post({ action: 'permits', session: SA }).data.rows.length === 27);
+  const bt = post({ action: 'batch', session: SA, calls: [{ action: 'delete', id: 3 }, { action: 'users' }] });
+  check('batch cannot reach a locked action', bt.ok && bt.data[0].ok === false && bt.data[1].ok, bt);
+  check('GET of a locked action refused', get({ action: 'delete', id: '3' }).ok === false);
+  const sr = post({ action: 'save_review', session: SA, id: P.id, base: post({ action: 'permit', session: SA, id: P.id }).data.permit.updated_at, inspections: {}, checklist: {}, loto: [] });
+  check('still usable: จป. save review on an approved permit', sr.ok, sr);
   for (let i = 0; i < 12; i++) login('admin', 'wrong-' + i);
   check('wrong passwords never lock a demo account', login('admin').ok);
-  for (let i = 0; i < 11; i++) login('visitor1', 'wrong-' + i);
-  check('other accounts still lock (10 failures)', login('visitor1', 'visitor-2').code === 'LOCKED');
 
-  // ================================================================ auto reset every 3 days
+  // ================================================================ auto reset every 5 hours (hourly trigger, fake clock)
   const permitsNow = () => post({ action: 'permits', session: login('admin').data.session }).data.rows.length;
-  setNow('2026-10-14T03:10:00');
+  const lastReset = () => Date.parse(gas.propStore.DEMO_LAST_RESET);
+  setNow('2026-10-13T11:00:00');
   const a1 = G.demoAutoReset();
-  check('demoAutoReset after 1 day: nothing happens', a1.ok && a1.reset === false && permitsNow() === 26 && a1.next_reset === new Date(BKK('2026-10-17T03:00:00')).toISOString(), a1);
-  setNow('2026-10-16T03:10:00');
-  check('demoAutoReset after 2 days 17 h: nothing happens', G.demoAutoReset().reset === false && permitsNow() === 26);
-  setNow('2026-10-17T03:12:00');
+  check('demoAutoReset after 1 h: nothing happens', a1.ok && a1.reset === false && permitsNow() === 27 && a1.next_reset === new Date(BKK('2026-10-13T15:00:00')).toISOString(), a1);
+  setNow('2026-10-13T14:59:00');
+  const a2 = G.demoAutoReset();
+  check('demoAutoReset at 4 h 59 min: nothing happens', a2.reset === false && permitsNow() === 27, a2);
+  setNow('2026-10-13T15:00:30');
   const a3 = G.demoAutoReset();
-  check('demoAutoReset on the 3rd-day slot: re-seeded', a3.ok && a3.reset === true && permitsNow() === 25 && Math.abs(Date.parse(gas.propStore.DEMO_LAST_RESET) - BKK('2026-10-17T03:12:00')) < 1000, a3);
-  check('after reset: visitor user gone, demo accounts restored', login('visitor1', 'visitor-2').code === 'AUTH_FAILED' &&
-    post({ action: 'users', session: login('admin').data.session }).data.users.find((u) => u.id === 3).position === 'วิศวกรซ่อมบำรุง');
+  check('demoAutoReset at 5 h+: re-seeded', a3.ok && a3.reset === true && permitsNow() === 25 && Math.abs(lastReset() - BKK('2026-10-13T15:00:30')) < 1000, a3);
+  check('after reset: visitor permits gone, demo accounts as seeded', post({ action: 'users', session: login('admin').data.session }).data.users.find((u) => u.id === 3).position === 'วิศวกรซ่อมบำรุง');
   check('after reset: visitor uploads trashed, 18 fresh sample files', [...gas.files.values()].filter((x) => !x.trashed).length === 18);
-  check('after reset: next reset 3 days later at 03:00', get({ action: 'demo_info' }).data.next_reset === new Date(BKK('2026-10-20T03:00:00')).toISOString());
+  check('after reset: demo_info next reset = 5 hours later', get({ action: 'demo_info' }).data.next_reset === new Date(BKK('2026-10-13T20:00:30')).toISOString());
   const rows2 = post({ action: 'permits', session: login('admin').data.session }).data.rows;
-  check('after reset: dates follow the new "today"', rows2.some((r) => r.created_at.startsWith('2026-10-17')) && rows2.every((r) => r.created_at <= '2026-10-17 03:12:00') &&
-    rows2.filter((r) => r.es === 'closed').length === 6 && rows2.filter((r) => r.es === 'rejected').length === 3, rows2.map((r) => r.created_at + ' ' + r.es));
+  check('after reset: dates follow the new "now" (fresh, nothing in the future)', rows2.some((r) => r.created_at.startsWith('2026-10-13')) && rows2.every((r) => r.created_at <= '2026-10-13 15:00:30') &&
+    rows2.filter((r) => r.es === 'closed').length === 6 && rows2.filter((r) => r.es === 'rejected').length === 3 && rows2.filter((r) => r.es === 'pending').length === 7,
+  rows2.map((r) => r.created_at + ' ' + r.es));
   check('after reset: old sessions are gone (new salts)', post({ action: 'me', session: SA }).code === 'AUTH');
-  setNow('2026-10-18T03:05:00');
-  check('demoAutoReset the next day: nothing', G.demoAutoReset().reset === false);
+  setNow('2026-10-13T16:00:30');
+  check('demoAutoReset 1 h after a reset: nothing', G.demoAutoReset().reset === false);
+  // 24 hourly runs, each firing 5 s early (trigger jitter): a reset every 5th run, never in between
+  const base = lastReset(), resets = [];
+  for (let h = 1; h <= 24; h++) {
+    gas.clock.offset = base + h * 3600e3 - 5000 - Date.now();
+    if (G.demoAutoReset().reset) resets.push(h);
+  }
+  check('hourly trigger over 24 h: re-seeds every 5 hours (5, 10, 15, 20)', resets.join() === '5,10,15,20', resets);
+  check('still exactly one hourly trigger', demoTriggers().length === 1 && demoTriggers()[0].hours === 1);
 
   // ================================================================ resetDemoNow + time-of-day invariants
   ['2026-10-18T00:20:00', '2026-10-18T06:45:00', '2026-10-18T13:30:00', '2026-10-18T23:55:00'].forEach((t) => {
@@ -265,8 +288,9 @@ module.exports = function run() {
   const p1 = (x) => JSON.parse(g1.context.doPost({ postData: { contents: JSON.stringify(x) } }).getContent());
   const li = p1({ action: 'login', username: 'admin', password: 'demo1234' });
   check('ALL-IN-ONE.gs: setupDemo + login + dashboard + demo_info work', s1x.seed.permits === 25 && li.ok &&
-    p1({ action: 'dashboard', session: li.data.session }).data.cnt.pending === 7 && p1({ action: 'demo_info' }).data.next_reset !== '' &&
-    g1.triggers.length === 1, s1x.seed);
+    p1({ action: 'dashboard', session: li.data.session }).data.cnt.pending === 7 && p1({ action: 'demo_info' }).data.next_reset === new Date(BKK('2026-10-13T14:00:00')).toISOString() &&
+    g1.triggers.length === 1 && g1.triggers[0].hours === 1, s1x.seed);
+  check('ALL-IN-ONE.gs: locked actions refused', p1({ action: 'delete', session: li.data.session, id: 1, resetPassword: 'demo1234' }).code === 'DEMO_LOCKED');
 
   // ================================================================ frontend demo pieces
   const docs = path.join(ROOT, 'docs');
@@ -275,8 +299,48 @@ module.exports = function run() {
   check('every page loads demo.js right after core.js', htmls.every((h) => /assets\/js\/core\.js\?v=\d+"><\/script>\n<script src="(?:\.\.\/)?assets\/js\/demo\.js/.test(fs.readFileSync(h, 'utf8'))),
     htmls.filter((h) => !/demo\.js/.test(fs.readFileSync(h, 'utf8'))));
   const demoJs = fs.readFileSync(path.join(docs, 'assets', 'js', 'demo.js'), 'utf8');
-  check('banner text + contact constant + hidden in print', demoJs.includes('🧪 <b>ระบบทดลองใช้ (Demo)</b> — ข้อมูลทั้งหมดจะถูกรีเซ็ตกลับเป็นค่าเริ่มต้นทุก 3 วัน · รีเซ็ตครั้งถัดไป:') &&
-    demoJs.includes('window.DEMO_CONTACT') && /@media print \{ \.demo-banner \{ display: none !important; \} \}/.test(demoJs));
+  check('banner text (5 hours shared reset + 5 hours per visitor) + contact constant + hidden in print',
+    demoJs.includes('🧪 <b>ระบบทดลองใช้ (Demo)</b> — ข้อมูลตัวอย่าง (ใช้ร่วมกันทุกคน) รีเซ็ตกลับเป็นค่าเริ่มต้นทุก 5 ชั่วโมง · ผู้ทดลองแต่ละคนใช้งานได้ 5 ชั่วโมง') &&
+    !/3 วัน/.test(demoJs) && demoJs.includes('window.DEMO_CONTACT') && /@media print \{ \.demo-banner \{ display: none !important; \}/.test(demoJs));
+  // banner countdown: hours + minutes (no days) — run the real left() from demo.js
+  const leftSrc = /const left = iso => \{[\s\S]*?\n  \};/.exec(demoJs);
+  const leftFn = leftSrc && vm.runInNewContext('(' + leftSrc[0].replace(/^const left = /, '').replace(/;$/, '') + ')', { Date, Math });
+  const inMs = (ms) => new Date(Date.now() + ms).toISOString();
+  check('banner countdown shows hours / minutes', leftFn && leftFn(inMs(4 * 3600e3 + 59 * 60e3 + 30e3)) === 'อีก 4 ชม. 59 นาที' &&
+    leftFn(inMs(25 * 60e3 + 30e3)) === 'อีก 25 นาที' && leftFn(inMs(-1000)) === 'กำลังรีเซ็ตในไม่ช้า', leftFn && [leftFn(inMs(4 * 3600e3 + 59 * 60e3 + 30e3)), leftFn(inMs(25 * 60e3 + 30e3))]);
+
+  // ---------- trial gate (per-visitor 5 hours): on every page, after config.js
+  const allHtml = walk(docs).filter((x) => x.endsWith('.html'));
+  check('trial-gate.js included on every page (incl. admin/*.html, print.html) right after config.js', allHtml.length >= 13 &&
+    allHtml.every((h) => /<script src="(?:\.\.\/)?config\.js"><\/script>\n<script src="(?:\.\.\/)?assets\/js\/trial-gate\.js(?:\?v=\d+)?"><\/script>/.test(fs.readFileSync(h, 'utf8'))),
+  allHtml.filter((h) => !/trial-gate\.js/.test(fs.readFileSync(h, 'utf8'))).map((h) => path.relative(ROOT, h)));
+  const tgPath = path.join(docs, 'assets', 'js', 'trial-gate.js');
+  const shared = path.join(ROOT, '..', 'TrialGate', 'client', 'trial-gate.js');
+  check('trial-gate.js = the shared TrialGate client, unchanged', fs.existsSync(tgPath) &&
+    (!fs.existsSync(shared) || fs.readFileSync(shared, 'utf8') === fs.readFileSync(tgPath, 'utf8')));
+  const cfgCtx = {};
+  cfgCtx.window = cfgCtx;
+  vm.runInNewContext(fs.readFileSync(path.join(docs, 'config.js'), 'utf8'), cfgCtx);
+  const T = cfgCtx.DEMO_TRIAL;
+  check('config.js: DEMO_TRIAL (gate URL, app ework, 5 hours, contact = DEMO_CONTACT, price line)', T && typeof T.gateUrl === 'string' &&
+    (T.gateUrl === 'PASTE_TRIAL_GATE_URL_HERE' || /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(T.gateUrl)) &&
+    T.app === 'ework' && T.hours === 5 && T.contact === cfgCtx.DEMO_CONTACT && /1,290 บาท\/เดือน/.test(T.priceHtml) && /29,900 บาท/.test(T.priceHtml), T);
+  check('trial badge kept clear of the admin sidebar (CSS only)', /body\.layout-admin #demo-trial-badge \{ left: 280px; \}/.test(demoJs));
+
+  // ---------- 🔒 premium buttons in the pages (one shared lock in demo.js)
+  const rd_ = (rel) => fs.readFileSync(path.join(docs, rel), 'utf8');
+  check('lock: one shared handler + modal text in demo.js', /WP\.lock = what =>/.test(demoJs) && /WP\.showLocked = /.test(demoJs) &&
+    demoJs.includes('ฟีเจอร์นี้มีในเวอร์ชันเต็ม') && /addEventListener\('click', e => stop\(e, true\), true\)/.test(demoJs));
+  const lockSpots = {
+    'admin/permits.html': ['Export CSV'], 'assets/js/pages/permits.js': ['พิมพ์ / บันทึก PDF', 'แก้ไขใบอนุญาต', 'ลบใบอนุญาต'],
+    'assets/js/pages/view.js': ['พิมพ์ / บันทึก PDF', 'แก้ไขใบอนุญาต', 'ลบใบอนุญาต'], 'assets/js/pages/status.js': ['พิมพ์ / บันทึก PDF', 'แจ้งเสร็จงานพร้อมรูปถ่าย'],
+    'assets/js/pages/dashboard.js': ['รีเซ็ตข้อมูลทั้งหมด'], 'admin/users.html': ['จัดการผู้ใช้'], 'assets/js/pages/users.js': ['จัดการผู้ใช้'],
+    'request.html': ['แนบไฟล์'], 'assets/js/app.js': ['แนบไฟล์'], 'print.html': ['พิมพ์ / บันทึก PDF']
+  };
+  const missing = [];
+  Object.entries(lockSpots).forEach(([f, ws]) => { const src = rd_(f); ws.forEach((w) => { if (!new RegExp('(data-locked="|WP\\.lock\\(\')' + w.replace(/[/()]/g, '\\$&')).test(src)) missing.push(f + ': ' + w); }); });
+  check('lock: premium buttons marked 🔒 (export, print, edit, delete, users, upload, work done, reset)', missing.length === 0, missing);
+  check('lock: print.html and request.html?edit= show the full-version notice', /WP\.lockedPage\(root/.test(rd_('assets/js/pages/print.js')) && /editId && WP\.lockedPage/.test(rd_('assets/js/request.js')));
   const loginHtml = fs.readFileSync(path.join(docs, 'login.html'), 'utf8');
   check('login page: "บัญชีทดลอง" box with every demo account', loginHtml.includes('บัญชีทดลอง') && S0.users.every((u) => loginHtml.includes('data-u="' + u.username + '" data-p="demo1234"')));
   const jsFiles = walk(docs).filter((x) => x.endsWith('.js'));
@@ -289,7 +353,9 @@ module.exports = function run() {
     J('\\bN', 'ap\\b'), J('watana', 'thep'), J('kro', 'group'), J('AKfy', 'cb'), J('webhook\\.', 'office'), J('192\\.', '168\\.'), J('กัลย์', 'รวี')].join('|'), 'i');
   const all = walk(ROOT).filter((x) => !/[\\/](\.git|node_modules)[\\/]/.test(x) && !/\.(png|jpg|ico)$/i.test(x));
   const hits = [];
-  all.forEach((x) => fs.readFileSync(x, 'utf8').split('\n').forEach((line, i) => { if (banned.test(line)) hits.push(path.relative(ROOT, x) + ':' + (i + 1)); }));
+  // the owner's own deployed demo API URL in docs/config.js is the one allowed Apps Script id
+  const ownApi = (x, line) => /[\\/]docs[\\/]config\.js$/.test(x) && /^window\.WP_CONFIG = \{ apiUrl: "https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec" \};?\s*$/.test(line);
+  all.forEach((x) => fs.readFileSync(x, 'utf8').split('\n').forEach((line, i) => { if (banned.test(line) && !ownApi(x, line)) hits.push(path.relative(ROOT, x) + ':' + (i + 1)); }));
   check('no real company / customer / people names, ids or webhooks anywhere (' + all.length + ' files)', hits.length === 0, hits);
 
   return { passed, failures };

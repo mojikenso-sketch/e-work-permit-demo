@@ -178,9 +178,9 @@
   </div>
   <div class="actions">
     ${myStage ? `<a class="btn gold" href="#wf-card"><i class="fa-solid fa-gavel"></i> อนุมัติ / ไม่อนุมัติ</a>` : ''}
-    <a class="btn ghost" href="../print.html?id=${p.id}" target="_blank"><i class="fa-solid fa-print"></i> พิมพ์</a>
-    ${safety ? `<a class="btn ghost" id="btn-edit" href="../request.html?edit=${p.id}" title="แก้ไขข้อมูลที่ผู้ขอกรอก (ต้องใช้รหัสผ่าน Reset password)">✏️ แก้ไข</a>
-    <button class="btn danger" id="btn-del" title="ลบใบอนุญาต (ต้องใช้รหัสผ่าน Reset password)">🗑 ลบ</button>` : `<a class="btn ghost" href="approvals.html"><i class="fa-solid fa-inbox"></i> รออนุมัติของฉัน</a>`}
+    <a class="btn ghost" href="../print.html?id=${p.id}" target="_blank"${WP.lock('พิมพ์ / บันทึก PDF')}>🔒 <i class="fa-solid fa-print"></i> พิมพ์</a>
+    ${safety ? `<a class="btn ghost" id="btn-edit" href="../request.html?edit=${p.id}" title="แก้ไขข้อมูลที่ผู้ขอกรอก (เวอร์ชันเต็ม)"${WP.lock('แก้ไขใบอนุญาต')}>🔒 แก้ไข</a>
+    <button class="btn danger" id="btn-del" title="ลบใบอนุญาต (เวอร์ชันเต็ม)"${WP.lock('ลบใบอนุญาต')}>🔒 ลบ</button>` : `<a class="btn ghost" href="approvals.html"><i class="fa-solid fa-inbox"></i> รออนุมัติของฉัน</a>`}
   </div>
 </div>
 
