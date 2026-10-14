@@ -353,8 +353,10 @@ module.exports = function run() {
     J('\\bN', 'ap\\b'), J('watana', 'thep'), J('kro', 'group'), J('AKfy', 'cb'), J('webhook\\.', 'office'), J('192\\.', '168\\.'), J('กัลย์', 'รวี')].join('|'), 'i');
   const all = walk(ROOT).filter((x) => !/[\\/](\.git|node_modules)[\\/]/.test(x) && !/\.(png|jpg|ico)$/i.test(x));
   const hits = [];
-  // the owner's own deployed demo API URL in docs/config.js is the one allowed Apps Script id
-  const ownApi = (x, line) => /[\\/]docs[\\/]config\.js$/.test(x) && /^window\.WP_CONFIG = \{ apiUrl: "https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec" \};?\s*$/.test(line);
+  // the owner's own deployed demo API and Trial Gate URLs in docs/config.js are the allowed Apps Script ids
+  const ownApi = (x, line) => /[\\/]docs[\\/]config\.js$/.test(x) &&
+    (/^window\.WP_CONFIG = \{ apiUrl: "https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec" \};?\s*$/.test(line) ||
+     /^window\.DEMO_TRIAL = \{ gateUrl: 'https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec', /.test(line));
   all.forEach((x) => fs.readFileSync(x, 'utf8').split('\n').forEach((line, i) => { if (banned.test(line) && !ownApi(x, line)) hits.push(path.relative(ROOT, x) + ':' + (i + 1)); }));
   check('no real company / customer / people names, ids or webhooks anywhere (' + all.length + ' files)', hits.length === 0, hits);
 
